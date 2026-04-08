@@ -12,7 +12,6 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libicu-dev \
     default-mysql-client \
-    libredis-dev \
   && docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install -j$(nproc) gd pdo pdo_mysql zip bcmath intl \
   && pecl install redis \
