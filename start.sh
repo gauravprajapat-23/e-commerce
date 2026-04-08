@@ -6,36 +6,52 @@ set +e
 echo "🚀 Starting Laravel application setup..."
 echo "📋 Checking environment variables..."
 
-# Debug: Show what database variables are available
 echo "DB_HOST: ${DB_HOST:-'not set'}"
 echo "DB_DATABASE: ${DB_DATABASE:-'not set'}"
 echo "DB_USERNAME: ${DB_USERNAME:-'not set'}"
 echo "MYSQLHOST: ${MYSQLHOST:-'not set'}"
 echo "MYSQLDATABASE: ${MYSQLDATABASE:-'not set'}"
 
+decode_placeholder() {
+  local value="$1"
+  if [[ "$value" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$ ]]; then
+    local var_name="${BASH_REMATCH[1]}"
+    printf '%s' "${!var_name:-}"
+  else
+    printf '%s' "$value"
+  fi
+}
+
+resolve_db_var() {
+  local app_var="$1"
+  local rail_var="$2"
+  local current_value="${!app_var:-}"
+  local rail_value="${!rail_var:-}"
+  local decoded_value="$(decode_placeholder "$current_value")"
+
+  if [ -n "$decoded_value" ] && [ "$decoded_value" != "$current_value" ]; then
+    export "$app_var"="$decoded_value"
+  elif [ -z "$current_value" ] && [ -n "$rail_value" ]; then
+    export "$app_var"="$rail_value"
+  fi
+}
+
+resolve_db_var DB_HOST MYSQLHOST
+resolve_db_var DB_PORT MYSQLPORT
+resolve_db_var DB_DATABASE MYSQLDATABASE
+resolve_db_var DB_USERNAME MYSQLUSER
+resolve_db_var DB_PASSWORD MYSQLPASSWORD
+
 # Change to the core directory where Laravel is installed
 cd /var/www/html/core
 
-# Set database variables from Railway if not already set
-if [ -n "$MYSQLHOST" ] && [ -z "$DB_HOST" ]; then
-    echo "🔧 Setting database variables from Railway..."
-    export DB_CONNECTION=mysql
-    export DB_HOST=$MYSQLHOST
-    export DB_PORT=${MYSQLPORT:-3306}
-    export DB_DATABASE=$MYSQLDATABASE
-    export DB_USERNAME=$MYSQLUSER
-    export DB_PASSWORD=$MYSQLPASSWORD
-    echo "✅ Database variables set"
-fi
-
-# Run database migrations if database is configured
 if [ -n "$DB_HOST" ] && [ -n "$DB_DATABASE" ]; then
     echo "📦 Running database migrations..."
     php artisan migrate --force --no-interaction 2>&1 || echo "⚠️  Migration warning: Some migrations may have failed"
     echo "✅ Migration step completed"
 else
     echo "⚠️  Database not configured, skipping migrations"
-    echo "💡 Make sure to set DB_HOST and DB_DATABASE in Railway variables"
+    echo "💡 Make sure DB_HOST and DB_DATABASE are set correctly in Railway variables"
 fi
 
 # Clear and cache configurations
