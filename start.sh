@@ -10,13 +10,23 @@ echo "DB_HOST: ${DB_HOST:-'not set'}"
 echo "DB_DATABASE: ${DB_DATABASE:-'not set'}"
 echo "DB_USERNAME: ${DB_USERNAME:-'not set'}"
 echo "MYSQLHOST: ${MYSQLHOST:-'not set'}"
+echo "MYSQL_HOST: ${MYSQL_HOST:-'not set'}"
 echo "MYSQLDATABASE: ${MYSQLDATABASE:-'not set'}"
+echo "MYSQL_DATABASE: ${MYSQL_DATABASE:-'not set'}"
 
 decode_placeholder() {
   local value="$1"
   if [[ "$value" =~ ^\$\{\{?([A-Za-z_][A-Za-z0-9_]*)\}\}?$ ]]; then
     local var_name="${BASH_REMATCH[1]}"
-    printf '%s' "${!var_name:-}"
+    local resolved=""
+    local candidates=("$var_name" "${var_name/_/-}" "${var_name//_/}" "${var_name//-/}" )
+    for candidate in "${candidates[@]}"; do
+      if [ -n "${!candidate:-}" ]; then
+        resolved="${!candidate}"
+        break
+      fi
+    done
+    printf '%s' "$resolved"
   else
     printf '%s' "$value"
   fi
@@ -27,27 +37,40 @@ resolve_db_var() {
   local rail_var="$2"
   local current_value="${!app_var:-}"
   local rail_value="${!rail_var:-}"
+  local rail_var_alt="${rail_var/_/-}"
+  local rail_value_alt="${!rail_var_alt:-}"
   local decoded_value="$(decode_placeholder "$current_value")"
 
   if [ -n "$decoded_value" ] && [ "$decoded_value" != "$current_value" ]; then
     export "$app_var"="$decoded_value"
-  elif [ -z "$current_value" ] && [ -n "$rail_value" ]; then
-    export "$app_var"="$rail_value"
+  elif [ -z "$current_value" ]; then
+    if [ -n "$rail_value" ]; then
+      export "$app_var"="$rail_value"
+    elif [ -n "$rail_value_alt" ]; then
+      export "$app_var"="$rail_value_alt"
+    fi
   fi
 }
 
 resolve_db_var DB_HOST MYSQLHOST
+resolve_db_var DB_HOST MYSQL_HOST
 resolve_db_var DB_PORT MYSQLPORT
+resolve_db_var DB_PORT MYSQL_PORT
 resolve_db_var DB_DATABASE MYSQLDATABASE
+resolve_db_var DB_DATABASE MYSQL_DATABASE
 resolve_db_var DB_USERNAME MYSQLUSER
+resolve_db_var DB_USERNAME MYSQL_USER
 resolve_db_var DB_PASSWORD MYSQLPASSWORD
+resolve_db_var DB_PASSWORD MYSQL_PASSWORD
 
 echo "Resolved DB_HOST: ${DB_HOST:-'not set'}"
 echo "Resolved DB_DATABASE: ${DB_DATABASE:-'not set'}"
 echo "Resolved DB_USERNAME: ${DB_USERNAME:-'not set'}"
 
 echo "Raw MYSQLHOST: ${MYSQLHOST:-'not set'}"
+echo "Raw MYSQL_HOST: ${MYSQL_HOST:-'not set'}"
 echo "Raw MYSQLDATABASE: ${MYSQLDATABASE:-'not set'}"
+echo "Raw MYSQL_DATABASE: ${MYSQL_DATABASE:-'not set'}"
 
 echo "Raw DB_HOST value: ${DB_HOST:-'not set'}"
 
