@@ -14,15 +14,40 @@ core/.env
 # Ignore Git and Docker metadata
 .git
 .gitignore
+.dockerignore
+.DS_Store
+
+# Ignore IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+Thumbs.db
 .DS_Store
 
 # Ignore local development files
-storage/framework/cache/data
-storage/framework/sessions
-storage/framework/views
-storage/logs
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
 public/storage
 
 # Ignore generated SQLite DBs
 *.sqlite
 *.sqlite3
+
+# Ignore documentation (except deployment guide)
+*.md
+!RAILWAY_DEPLOYMENT.md
+README.md
+
+# Ignore test files
+tests/
+phpunit.xml
+
+# Ignore temp files
+core/temp/*
+*.log

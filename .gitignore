@@ -1,0 +1,89 @@
+# Environment files
+.env
+.env.local
+.env.backup
+.env.production
+.env.*.local
+
+# Laravel specific
+/public/storage
+/public/hot
+/storage/*.key
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing/disks/*
+/bootstrap/cache/*
+!.gitkeep
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Packages
+*.7z
+*.gz
+*.rar
+*.tar
+*.zip
+
+# Dependencies
+/node_modules
+/vendor
+core/vendor/
+
+# Build files
+/dist
+/build
+/public/hot
+/public/mix-manifest.json
+
+# Testing
+/phpunit.result.cache
+/coverage
+/tests/coverage-*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Database
+*.sqlite
+*.sqlite3
+
+# Documentation (keep deployment docs)
+# *.md - handled in .dockerignore
+
+# Temporary files
+*.tmp
+*.temp
+/temp/*
+core/temp/*
+
+# Composer
+composer.phar
+/.phpunit.result.cache
+
+# Vite
+*.local
+
+# Environment variables in Railway format
+!.env.example
+!.env.railway.example
+core/.env
