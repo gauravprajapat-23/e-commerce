@@ -4,7 +4,6 @@
     "contextPath": "./"
   },
   "deploy": {
-    "startCommand": "apache2-foreground",
     "healthcheckPath": "/",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
