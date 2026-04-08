@@ -14,7 +14,7 @@ echo "MYSQLDATABASE: ${MYSQLDATABASE:-'not set'}"
 
 decode_placeholder() {
   local value="$1"
-  if [[ "$value" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$ ]]; then
+  if [[ "$value" =~ ^\$\{\{?([A-Za-z_][A-Za-z0-9_]*)\}\}?$ ]]; then
     local var_name="${BASH_REMATCH[1]}"
     printf '%s' "${!var_name:-}"
   else
@@ -42,24 +42,35 @@ resolve_db_var DB_DATABASE MYSQLDATABASE
 resolve_db_var DB_USERNAME MYSQLUSER
 resolve_db_var DB_PASSWORD MYSQLPASSWORD
 
+echo "Resolved DB_HOST: ${DB_HOST:-'not set'}"
+echo "Resolved DB_DATABASE: ${DB_DATABASE:-'not set'}"
+echo "Resolved DB_USERNAME: ${DB_USERNAME:-'not set'}"
+
+echo "Raw MYSQLHOST: ${MYSQLHOST:-'not set'}"
+echo "Raw MYSQLDATABASE: ${MYSQLDATABASE:-'not set'}"
+
+echo "Raw DB_HOST value: ${DB_HOST:-'not set'}"
+
+echo "Raw DB_DATABASE value: ${DB_DATABASE:-'not set'}"
+
 # Change to the core directory where Laravel is installed
 cd /var/www/html/core
 
-if [ -n "$DB_HOST" ] && [ -n "$DB_DATABASE" ]; then
+if [ -n "$DB_HOST" ] && [ -n "$DB_DATABASE" ] && [[ ! "$DB_HOST" =~ ^\$\{ ]]; then
     echo "📦 Running database migrations..."
     php artisan migrate --force --no-interaction 2>&1 || echo "⚠️  Migration warning: Some migrations may have failed"
     echo "✅ Migration step completed"
-else
-    echo "⚠️  Database not configured, skipping migrations"
-    echo "💡 Make sure DB_HOST and DB_DATABASE are set correctly in Railway variables"
-fi
 
-# Clear and cache configurations
-echo "🔧 Optimizing Laravel..."
-php artisan config:cache 2>&1 || echo "⚠️  Config cache warning"
-php artisan route:cache 2>&1 || echo "⚠️  Route cache warning"
-php artisan view:cache 2>&1 || echo "⚠️  View cache warning"
-echo "✅ Laravel optimization completed"
+    echo "🔧 Optimizing Laravel..."
+    php artisan config:cache 2>&1 || echo "⚠️  Config cache warning"
+    php artisan route:cache 2>&1 || echo "⚠️  Route cache warning"
+    php artisan view:cache 2>&1 || echo "⚠️  View cache warning"
+    echo "✅ Laravel optimization completed"
+else
+    echo "⚠️  Database not configured or DB_HOST unresolved, skipping migrations and cache generation"
+    echo "💡 Current DB_HOST: ${DB_HOST:-'not set'}"
+    echo "💡 Current DB_DATABASE: ${DB_DATABASE:-'not set'}"
+fi
 
 # Ensure proper permissions
 echo "🔒 Setting permissions..."

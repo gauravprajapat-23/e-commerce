@@ -45,8 +45,7 @@ ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf
 
 # Fix Apache MPM issue - disable conflicting MPM modules
-RUN a2dismod mpm_event 2>/dev/null || true && \
-    a2dismod mpm_worker 2>/dev/null || true && \
+RUN a2dismod mpm_event mpm_worker 2>/dev/null || true && \
     a2enmod mpm_prefork
 
 # Configure Apache for better performance and security
