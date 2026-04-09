@@ -117,5 +117,32 @@ echo "✅ Permissions set"
 a2dismod mpm_event mpm_worker mpm_async 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || true
 
-echo "🌐 Starting Apache web server..."
+# ---------------------------------------------------------------
+# Configure Apache to listen on Railway's PORT variable
+# Railway injects PORT env variable and health checks use THIS port
+# Default to 8080 if PORT is not set (Railway common default)
+# ---------------------------------------------------------------
+APACHE_PORT=${PORT:-8080}
+echo "🔧 Configuring Apache to listen on port: ${APACHE_PORT}"
+
+# Update Apache ports.conf to use the PORT variable
+cat > /etc/apache2/ports.conf << EOF
+Listen ${APACHE_PORT}
+EOF
+
+# Update VirtualHost to use the PORT variable
+cat > /etc/apache2/sites-available/000-default.conf << EOF
+<VirtualHost *:${APACHE_PORT}>
+    ServerName 0.0.0.0
+    DocumentRoot /var/www/html/public
+    <Directory /var/www/html/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+
+echo "🌐 Starting Apache web server on port ${APACHE_PORT}..."
 exec apache2-foreground
