@@ -117,5 +117,17 @@ echo "✅ Permissions set"
 a2dismod mpm_event mpm_worker mpm_async 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || true
 
-echo "🌐 Starting Apache web server..."
+# ---------------------------------------------------------------
+# Step 3: Configure Apache to listen on the PORT variable from Railway
+# Railway injects PORT env variable and health checks use this port
+# Default to 80 if PORT is not set
+# ---------------------------------------------------------------
+APACHE_PORT=${PORT:-80}
+echo "🔧 Configuring Apache to listen on port: ${APACHE_PORT}"
+
+# Update Apache ports.conf to use the PORT variable
+sed -i "s/Listen 80/Listen ${APACHE_PORT}/g" /etc/apache2/ports.conf
+sed -i "s/Listen 80/Listen ${APACHE_PORT}/g" /etc/apache2/sites-available/000-default.conf
+
+echo "🌐 Starting Apache web server on port ${APACHE_PORT}..."
 apache2-foreground

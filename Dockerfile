@@ -51,7 +51,8 @@ RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-avail
 
 # Configure Apache for better performance and security
 RUN echo 'ServerTokens Prod' >> /etc/apache2/conf-enabled/security.conf && \
-    echo 'ServerSignature Off' >> /etc/apache2/conf-enabled/security.conf
+    echo 'ServerSignature Off' >> /etc/apache2/conf-enabled/security.conf && \
+    echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 
 # Copy startup script
 COPY start.sh /usr/local/bin/start.sh
