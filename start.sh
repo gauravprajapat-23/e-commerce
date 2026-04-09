@@ -130,4 +130,11 @@ sed -i "s/Listen 80/Listen ${APACHE_PORT}/g" /etc/apache2/ports.conf
 sed -i "s/Listen 80/Listen ${APACHE_PORT}/g" /etc/apache2/sites-available/000-default.conf
 
 echo "🌐 Starting Apache web server on port ${APACHE_PORT}..."
+
+# Test if Apache is responding before going to foreground
+echo "⏳ Testing Apache connectivity..."
+sleep 2
+curl -s -o /dev/null -w "%{http_code}" http://localhost:${APACHE_PORT}/up || echo "Warning: Health endpoint not responding yet"
+
+# Start Apache in foreground
 apache2-foreground
