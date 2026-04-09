@@ -117,24 +117,5 @@ echo "✅ Permissions set"
 a2dismod mpm_event mpm_worker mpm_async 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || true
 
-# ---------------------------------------------------------------
-# Step 3: Configure Apache to listen on the PORT variable from Railway
-# Railway injects PORT env variable and health checks use this port
-# Default to 80 if PORT is not set
-# ---------------------------------------------------------------
-APACHE_PORT=${PORT:-80}
-echo "🔧 Configuring Apache to listen on port: ${APACHE_PORT}"
-
-# Update Apache ports.conf to use the PORT variable
-sed -i "s/Listen 80/Listen ${APACHE_PORT}/g" /etc/apache2/ports.conf
-sed -i "s/Listen 80/Listen ${APACHE_PORT}/g" /etc/apache2/sites-available/000-default.conf
-
-echo "🌐 Starting Apache web server on port ${APACHE_PORT}..."
-
-# Test if Apache is responding before going to foreground
-echo "⏳ Testing Apache connectivity..."
-sleep 2
-curl -s -o /dev/null -w "%{http_code}" http://localhost:${APACHE_PORT}/up || echo "Warning: Health endpoint not responding yet"
-
-# Start Apache in foreground
-apache2-foreground
+echo "🌐 Starting Apache web server..."
+exec apache2-foreground
