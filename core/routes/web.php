@@ -2,6 +2,14 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Health check endpoint for Railway
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now()->toISOString(),
+    ]);
+})->withoutMiddleware(['web', 'maintenance']);
+
 Route::get('/clear', function () {
     \Illuminate\Support\Facades\Artisan::call('optimize:clear');
 });
