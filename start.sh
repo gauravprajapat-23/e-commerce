@@ -19,7 +19,7 @@ decode_placeholder() {
   if [[ "$value" =~ ^\$\{\{?([A-Za-z_][A-Za-z0-9_]*)\}\}?$ ]]; then
     local var_name="${BASH_REMATCH[1]}"
     local resolved=""
-    local candidates=("$var_name" "${var_name/_/-}" "${var_name//_/}" "${var_name//-/}" )
+    local candidates=("$var_name" "${var_name//_/}" )
     for candidate in "${candidates[@]}"; do
       if [ -n "${!candidate:-}" ]; then
         resolved="${!candidate}"
@@ -37,8 +37,6 @@ resolve_db_var() {
   local rail_var="$2"
   local current_value="${!app_var:-}"
   local rail_value="${!rail_var:-}"
-  local rail_var_alt="${rail_var/_/-}"
-  local rail_value_alt="${!rail_var_alt:-}"
   local decoded_value="$(decode_placeholder "$current_value")"
 
   if [ -n "$decoded_value" ] && [ "$decoded_value" != "$current_value" ]; then
@@ -46,8 +44,6 @@ resolve_db_var() {
   elif [ -z "$current_value" ]; then
     if [ -n "$rail_value" ]; then
       export "$app_var"="$rail_value"
-    elif [ -n "$rail_value_alt" ]; then
-      export "$app_var"="$rail_value_alt"
     fi
   fi
 }
