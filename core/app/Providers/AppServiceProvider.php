@@ -28,7 +28,17 @@ class AppServiceProvider extends ServiceProvider {
      * Bootstrap any application services.
      */
     public function boot(): void {
-        if (!cache()->get('SystemInstalled')) {
+        try {
+            $systemInstalled = cache()->get('SystemInstalled');
+        } catch (\Exception $e) {
+            // The cache table may not exist yet (e.g. before the first migration
+            // run completes). Treat this as "not installed" so the installer
+            // redirect logic below can handle it gracefully, and avoid a fatal
+            // boot error that would prevent Apache from serving any response.
+            $systemInstalled = false;
+        }
+
+        if (!$systemInstalled) {
             $envFilePath = base_path('.env');
             if (!file_exists($envFilePath)) {
                 header('Location: install');
@@ -39,7 +49,12 @@ class AppServiceProvider extends ServiceProvider {
                 header('Location: install');
                 exit;
             } else {
-                cache()->put('SystemInstalled', true);
+                try {
+                    cache()->put('SystemInstalled', true);
+                } catch (\Exception $e) {
+                    // Cache table not yet available — will be retried on next request
+                    // once migrations have completed.
+                }
             }
         }
 

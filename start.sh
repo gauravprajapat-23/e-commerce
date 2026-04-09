@@ -14,81 +14,97 @@ echo "MYSQL_HOST: ${MYSQL_HOST:-'not set'}"
 echo "MYSQLDATABASE: ${MYSQLDATABASE:-'not set'}"
 echo "MYSQL_DATABASE: ${MYSQL_DATABASE:-'not set'}"
 
-decode_placeholder() {
-  local value="$1"
-  if [[ "$value" =~ ^\$\{\{?([A-Za-z_][A-Za-z0-9_]*)\}\}?$ ]]; then
-    local var_name="${BASH_REMATCH[1]}"
-    local resolved=""
-    local candidates=("$var_name" "${var_name//_/}" )
-    for candidate in "${candidates[@]}"; do
-      if [ -n "${!candidate:-}" ]; then
-        resolved="${!candidate}"
-        break
-      fi
-    done
-    printf '%s' "$resolved"
-  else
-    printf '%s' "$value"
-  fi
-}
+# ---------------------------------------------------------------
+# Step 1: Directly map Railway MySQL variables to Laravel DB vars.
+# Railway injects MYSQLHOST, MYSQLPORT, etc. into the environment
+# of the running container. If DB_HOST is still a literal
+# placeholder (e.g. "${MYSQLHOST}" or "${{MYSQLHOST}}") or is
+# simply empty, override it with the Railway-provided value.
+# ---------------------------------------------------------------
+map_railway_var() {
+  local app_var="$1"   # e.g. DB_HOST
+  local rail_var="$2"  # e.g. MYSQLHOST
+  local current="${!app_var:-}"
+  local railway="${!rail_var:-}"
 
-resolve_db_var() {
-  local app_var="$1"
-  local rail_var="$2"
-  local current_value="${!app_var:-}"
-  local rail_value="${!rail_var:-}"
-  local decoded_value="$(decode_placeholder "$current_value")"
+  echo "🔍 Checking ${app_var}: current='${current}' railway_source=${rail_var}='${railway}'"
 
-  if [ -n "$decoded_value" ] && [ "$decoded_value" != "$current_value" ]; then
-    export "$app_var"="$decoded_value"
-  elif [ -z "$current_value" ]; then
-    if [ -n "$rail_value" ]; then
-      export "$app_var"="$rail_value"
+  # Treat the current value as unresolved if it is empty OR if it
+  # still looks like a shell/Railway variable reference.
+  if [[ -z "$current" || "$current" =~ ^\$\{?\{? ]]; then
+    if [ -n "$railway" ]; then
+      echo "  ✅ Mapping ${rail_var}='${railway}' → ${app_var}"
+      export "$app_var"="$railway"
+    else
+      echo "  ⚠️  ${rail_var} is also not set; ${app_var} remains unresolved"
     fi
+  else
+    echo "  ℹ️  ${app_var} already resolved to '${current}', keeping as-is"
   fi
 }
 
-resolve_db_var DB_HOST MYSQLHOST
-resolve_db_var DB_HOST MYSQL_HOST
-resolve_db_var DB_PORT MYSQLPORT
-resolve_db_var DB_PORT MYSQL_PORT
-resolve_db_var DB_DATABASE MYSQLDATABASE
-resolve_db_var DB_DATABASE MYSQL_DATABASE
-resolve_db_var DB_USERNAME MYSQLUSER
-resolve_db_var DB_USERNAME MYSQL_USER
-resolve_db_var DB_PASSWORD MYSQLPASSWORD
-resolve_db_var DB_PASSWORD MYSQL_PASSWORD
+# Map Railway MySQL service variables → Laravel DB variables
+map_railway_var DB_HOST     MYSQLHOST
+map_railway_var DB_HOST     MYSQL_HOST
+map_railway_var DB_PORT     MYSQLPORT
+map_railway_var DB_PORT     MYSQL_PORT
+map_railway_var DB_DATABASE MYSQLDATABASE
+map_railway_var DB_DATABASE MYSQL_DATABASE
+map_railway_var DB_USERNAME MYSQLUSER
+map_railway_var DB_USERNAME MYSQL_USER
+map_railway_var DB_PASSWORD MYSQLPASSWORD
+map_railway_var DB_PASSWORD MYSQL_PASSWORD
 
-echo "Resolved DB_HOST: ${DB_HOST:-'not set'}"
-echo "Resolved DB_DATABASE: ${DB_DATABASE:-'not set'}"
-echo "Resolved DB_USERNAME: ${DB_USERNAME:-'not set'}"
-
-echo "Raw MYSQLHOST: ${MYSQLHOST:-'not set'}"
-echo "Raw MYSQL_HOST: ${MYSQL_HOST:-'not set'}"
-echo "Raw MYSQLDATABASE: ${MYSQLDATABASE:-'not set'}"
-echo "Raw MYSQL_DATABASE: ${MYSQL_DATABASE:-'not set'}"
-
-echo "Raw DB_HOST value: ${DB_HOST:-'not set'}"
-
-echo "Raw DB_DATABASE value: ${DB_DATABASE:-'not set'}"
+echo ""
+echo "📊 Resolved database configuration:"
+echo "  DB_HOST:     ${DB_HOST:-'not set'}"
+echo "  DB_PORT:     ${DB_PORT:-'not set'}"
+echo "  DB_DATABASE: ${DB_DATABASE:-'not set'}"
+echo "  DB_USERNAME: ${DB_USERNAME:-'not set'}"
+echo "  DB_PASSWORD: ${DB_PASSWORD:+'(set)'}"
 
 # Change to the core directory where Laravel is installed
 cd /var/www/html/core
 
-if [ -n "$DB_HOST" ] && [ -n "$DB_DATABASE" ] && [[ ! "$DB_HOST" =~ ^\$\{ ]]; then
+# ---------------------------------------------------------------
+# Step 2: Determine whether the database is reachable enough to
+# attempt migrations.  We consider the DB available when DB_HOST
+# is set AND does not still contain an unresolved placeholder.
+# As a fallback, if MYSQLHOST is set we also try — this covers
+# the edge case where DB_HOST resolution above still failed.
+# ---------------------------------------------------------------
+DB_AVAILABLE=false
+
+if [ -n "$DB_HOST" ] && [[ ! "$DB_HOST" =~ ^\$\{ ]]; then
+    DB_AVAILABLE=true
+    echo "✅ DB_HOST resolved to '${DB_HOST}', will attempt migrations"
+elif [ -n "$MYSQLHOST" ]; then
+    # Last-resort: export directly and try anyway
+    export DB_HOST="$MYSQLHOST"
+    [ -n "$MYSQLPORT" ]     && export DB_PORT="$MYSQLPORT"
+    [ -n "$MYSQLDATABASE" ] && export DB_DATABASE="$MYSQLDATABASE"
+    [ -n "$MYSQLUSER" ]     && export DB_USERNAME="$MYSQLUSER"
+    [ -n "$MYSQLPASSWORD" ] && export DB_PASSWORD="$MYSQLPASSWORD"
+    DB_AVAILABLE=true
+    echo "✅ Fell back to MYSQLHOST='${MYSQLHOST}', will attempt migrations"
+fi
+
+if [ "$DB_AVAILABLE" = true ] && [ -n "$DB_DATABASE" ]; then
     echo "📦 Running database migrations..."
-    php artisan migrate --force --no-interaction 2>&1 || echo "⚠️  Migration warning: Some migrations may have failed"
+    php artisan migrate --force --no-interaction 2>&1 \
+        || echo "⚠️  Migration warning: Some migrations may have failed (non-fatal)"
     echo "✅ Migration step completed"
 
     echo "🔧 Optimizing Laravel..."
-    php artisan config:cache 2>&1 || echo "⚠️  Config cache warning"
-    php artisan route:cache 2>&1 || echo "⚠️  Route cache warning"
-    php artisan view:cache 2>&1 || echo "⚠️  View cache warning"
+    php artisan config:cache 2>&1  || echo "⚠️  Config cache warning (non-fatal)"
+    php artisan route:cache 2>&1   || echo "⚠️  Route cache warning (non-fatal)"
+    php artisan view:cache 2>&1    || echo "⚠️  View cache warning (non-fatal)"
     echo "✅ Laravel optimization completed"
 else
-    echo "⚠️  Database not configured or DB_HOST unresolved, skipping migrations and cache generation"
-    echo "💡 Current DB_HOST: ${DB_HOST:-'not set'}"
-    echo "💡 Current DB_DATABASE: ${DB_DATABASE:-'not set'}"
+    echo "⚠️  Database not configured — skipping migrations and cache generation"
+    echo "💡 DB_HOST:     ${DB_HOST:-'not set'}"
+    echo "💡 DB_DATABASE: ${DB_DATABASE:-'not set'}"
+    echo "💡 MYSQLHOST:   ${MYSQLHOST:-'not set'}"
 fi
 
 # Ensure proper permissions
