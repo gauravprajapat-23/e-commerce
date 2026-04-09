@@ -117,6 +117,5 @@ echo "✅ Permissions set"
 a2dismod mpm_event mpm_worker mpm_async 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || true
 
-# Start Apache
 echo "🌐 Starting Apache web server..."
-exec apache2-foreground
+apache2-foreground
