@@ -97,6 +97,10 @@ chown -R www-data:www-data /var/www/html/core/storage /var/www/html/core/bootstr
 chmod -R 775 /var/www/html/core/storage /var/www/html/core/bootstrap/cache 2>&1 || true
 echo "✅ Permissions set"
 
+# Ensure only one MPM is enabled
+a2dismod mpm_event mpm_worker mpm_async 2>/dev/null || true
+a2enmod mpm_prefork 2>/dev/null || true
+
 # Start Apache
 echo "🌐 Starting Apache web server..."
 exec apache2-foreground

@@ -1,5 +1,10 @@
 FROM php:8.2-apache
 
+# Fix Apache MPM issue early - disable all MPM modules, then enable only mpm_prefork.
+# This must happen before any other Apache configuration to avoid "More than one MPM loaded".
+RUN a2dismod mpm_event mpm_worker mpm_async 2>/dev/null || true && \
+    a2enmod mpm_prefork
+
 # Install system dependencies required for Laravel and common PHP extensions.
 RUN apt-get update && apt-get install -y \
     git \
@@ -43,10 +48,6 @@ RUN composer dump-autoload --optimize \
 # Set Apache document root to the Laravel public directory.
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf
-
-# Fix Apache MPM issue - disable conflicting MPM modules
-RUN rm -f /etc/apache2/mods-enabled/mpm_event.load /etc/apache2/mods-enabled/mpm_event.conf /etc/apache2/mods-enabled/mpm_worker.load /etc/apache2/mods-enabled/mpm_worker.conf && \
-    a2enmod mpm_prefork
 
 # Configure Apache for better performance and security
 RUN echo 'ServerTokens Prod' >> /etc/apache2/conf-enabled/security.conf && \
